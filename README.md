@@ -3,7 +3,7 @@ This is our home secuity system that is operated by a controlled by a Rasyberry 
 
 This home security system will include the following:  **(1)** a live stream survelliance camera hosted a webserver, **(2)** a motion detection system that simultaneously captures a photo, **(3)** and an email notification system that will deliver the captured photo asynchronously. 
 
-For hardware, we soldered and coonected the Raspyberry Pi Camera and a PIR motion sensor the Pi's GPIO Pin 17 for external communication.
+For hardware, we soldered and connected a Pi Camera and a PIR motion sensor to the Rasyberry Pi's GPIO Pins for external communication.
 
 Frameworks and Libraries Used
 ---
