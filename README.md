@@ -7,4 +7,4 @@ For hardware, we soldered and coonected the Raspyberry Pi Camera and a PIR motio
 
 Frameworks and Libraries Used
 ---
-For the webserver, we will be using the SocketServer framework to handle incoming requests into the server's address. We will then be using python's Threading librarry to asyncholously update the video simulatenoustly. We used the SMTP protocol client to create an object that can be used to send mail to any internet machine with an SMTP listener daemon. Finally, we used the Rasyberry pi's built-in Picamera library to access the photos/live stream.
+For the webserver, we will be using the SocketServer framework to handle incoming requests into the server's address. We will then be using python's Threading library to asynchronously update the video simultaneously. We used the SMTP protocol client to create an object that can be used to send mail to any internet machine with an SMTP listener daemon. Finally, we used the Raspberry pi's built-in Picamera library to access the photos/live stream.
