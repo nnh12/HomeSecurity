@@ -297,58 +297,38 @@ body{
 </div>
 </html>
 """
-
-class StreamingOutput(object):
-    def __init__(self):
-        self.snap = None
-        self.buffer = io.BytesIO()
-        self.condition = Condition()
-
-    def write(self, buf):
-        if buf.startswith(b'\xff\xd8'):
-            
-            self.buffer.truncate()
-            with self.condition:
-                self.snap = self.buffer.getvalue()
-                self.condition.notify_all()
-            self.buffer.seek(0)
-        return self.buffer.write(buf)
-
-class StreamingHandler(server.BaseHTTPRequestHandler):
-    def do_GET(self): 
+class StreamHandler(server.BaseHTTPRequestHandler):
+    def do_get_response(self): 
         ##a = 0##putting outside of if statements so I can increase it or reference it from within each
-        if self.path == '/':
+        if self.gate == '/':
+
             self.send_response(301)
             self.send_header('Location', '/index.html')
             self.end_headers()
+            
+            
         
-        elif self.path == '/index.html':
-            content = PAGE.encode('utf-8')
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html')
-            self.send_header('Content-Length', len(content))
-            self.end_headers()
-            self.wfile.write(content)
-
         elif self.path == '/stream2.jpg':
             print('stream')
+            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=FRAME')
+            self.end_headers()
             self.send_response(200)
             self.send_header('Age', 0)
             self.send_header('Cache-Control', 'no-cache, private')
             self.send_header('Pragma', 'no-cache')
-            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=FRAME')
-            self.end_headers()
+            
+            
             try:
               
                 while True:
-                    with output.condition:
-                        output.condition.wait()
+                    with output.check:
+                        output.check.wait()
                         frame = output.snap
                   
-                    self.wfile.write(b'--FRAME\r\n')
                     self.send_header('Content-Type', 'image/jpeg')
                     self.send_header('Content-Length', len(frame))
                     self.end_headers()
+                    self.wfile.write(b'--FRAME\r\n')
                     self.wfile.write(frame)
                     self.wfile.write(b'\r\n')
 
@@ -362,43 +342,16 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                 logging.warning(
                     'Removed streaming client %s: %s',
                     self.client_address, str(e))
-
-        elif self.path == '/stream3.jpg':
-            print('stream')
-            self.send_response(200)
-            self.send_header('Age', 0)
-            self.send_header('Cache-Control', 'no-cache, private')
-            self.send_header('Pragma', 'no-cache')
-            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=FRAME')
-            self.end_headers()
-            try:
-              
-                while True:
-                    with output.condition:
-                        output.condition.wait()
-                        frame = output.snap
-                  
-                    self.wfile.write(b'--FRAME\r\n')
-                    self.send_header('Content-Type', 'image/jpeg')
-                    self.send_header('Content-Length', len(frame))
-                    self.end_headers()
-                    self.wfile.write(frame)
-                    self.wfile.write(b'\r\n')
-
-                                    
-            except Exception as e:
-                logging.warning(
-                    'Removed streaming client %s: %s',
-                    self.client_address, str(e))
-            
+           
         elif self.path == '/stream.mjpg': ## MAIN STREAM 
             print('stream')
-            self.send_response(200)
-            self.send_header('Age', 0)
-            self.send_header('Cache-Control', 'no-cache, private')
             self.send_header('Pragma', 'no-cache')
+            self.send_header('Age', 0)
             self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=FRAME')
             self.end_headers()
+            self.send_response(200)
+            self.send_header('Cache-Control', 'no-cache, private')
+            
             a = 2
             try:
                 while True:
@@ -432,14 +385,14 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
                     # a = 1
                     
-                    with output.condition:
-                        output.condition.wait()
+                    with output.check:
+                        output.check.wait()
                         frame = output.snap
-                    self.wfile.write(b'--FRAME\r\n')
-                    self.send_header('Content-Type', 'image/jpeg')
                     self.send_header('Content-Length', len(frame))
                     self.end_headers()
                     self.wfile.write(frame)
+                    self.wfile.write(b'--FRAME\r\n')
+                    self.send_header('Content-Type', 'image/jpeg')
                     self.wfile.write(b'\r\n')
 
             except Exception as e:
@@ -451,8 +404,62 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_error(404)
             self.end_headers()
 
+         elif self.path == '/stream3.jpg':
+            print('stream')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=FRAME')
+            self.end_headers()
+            self.send_response(200)
+            self.send_header('Age', 0)
+            self.send_header('Cache-Control', 'no-cache, private')
+           
+            try:
+              
+                while True:
+                    with output.check:
+                        output.check.wait()
+                        frame = output.snap
+                  
+                    self.send_header('Content-Length', len(frame))
+                    self.end_headers()
+                    self.wfile.write(frame)
+                    self.wfile.write(b'--FRAME\r\n')
+                    self.send_header('Content-Type', 'image/jpeg')
+                    
+                    self.wfile.write(b'\r\n')
 
-class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
+                                    
+            except Exception as e:
+                logging.warning(
+                    'Removed streaming client %s: %s',
+                    self.client_address, str(e))
+        
+         elif self.path == '/index.html':
+            content = PAGE.encode('utf-8')
+            self.send_header('Content-Length', len(content))
+            self.end_headers()
+            self.wfile.write(content)
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            
+
+class OutputStreamLampiCamera(object):
+    def __init__(self):
+        self.snap = None
+        self.stop = io.BytesIO()
+        self.check = Condition()
+
+    def change(self, buf):
+        if buf.startswith(b'\xff\xd8'):
+            
+            self.stop.truncate()
+            with self.check:
+                self.check.notify_all()
+                self.snap = self.stop.getvalue()
+            self.stop.seek(0)
+        return self.stop.write(buf)
+
+class ServerStream(socketserver.ThreadingMixIn, server.HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
     print("stream server")
@@ -488,7 +495,9 @@ def send_an_Chrisitanemail():
     me = 'nathan40241@gmail.com'          # your id
     timestamp = datetime.now().isoformat()
     subject = "There's an intruder during " + timestamp + ". Please check the photo!"     # Subject
-  
+    encoders.encode_base64(part)  
+    part.add_header('Content-Disposition', 'attachment; filename="picture.jpg"')   # File name and format name
+    msg.attach(part)  
     msg = MIMEMultipart()  
     msg['Subject'] = subject  
     msg['From'] = me  
@@ -498,18 +507,17 @@ def send_an_Chrisitanemail():
   
     part = MIMEBase('application', "octet-stream")  
     part.set_payload(open("picture.jpg", "rb").read())  
-    encoders.encode_base64(part)  
-    part.add_header('Content-Disposition', 'attachment; filename="picture.jpg"')   # File name and format name
-    msg.attach(part)  
+   
   
     try:  
-       s = smtplib.SMTP('smtp.gmail.com', 587)  # Protocol
-       s.ehlo()  
        s.starttls()  
        s.ehlo()  
-       s.login(user = 'nathan40241@gmail.com', password = 'Badgebadge29*')  # User id & password
+       s.login(user = 'nathan40241@gmail.com', password = '*****')  # User id & password
        #s.send_message(msg)  
        s.sendmail(me, toaddr, msg.as_string())  
+       s = smtplib.SMTP('smtp.gmail.com', 587)  # Protocol
+       s.ehlo()  
+       
        s.quit()  
     #except:  
     #   print ("Error: unable to send email")    
@@ -520,6 +528,10 @@ def send_an_Professoremail():
     toaddr = 'nab2@case.edu'      # To id 
     me = 'nathan40241@gmail.com'          # your id
     timestamp = datetime.now().isoformat()
+     part.set_payload(open("picture.jpg", "rb").read())  
+    encoders.encode_base64(part)  
+    part.add_header('Content-Disposition', 'attachment; filename="picture.jpg"')   # File name and format name
+    msg.attach(part)  
     subject = "There's an intruder during " + timestamp + ". Please check the photo."     # Subject
   
     msg = MIMEMultipart()  
@@ -530,20 +542,18 @@ def send_an_Professoremail():
     #msg.attach(MIMEText(text))  
   
     part = MIMEBase('application', "octet-stream")  
-    part.set_payload(open("picture.jpg", "rb").read())  
-    encoders.encode_base64(part)  
-    part.add_header('Content-Disposition', 'attachment; filename="picture.jpg"')   # File name and format name
-    msg.attach(part)  
+   
   
     try:  
-       s = smtplib.SMTP('smtp.gmail.com', 587)  # Protocol
-       s.ehlo()  
-       s.starttls()  
-       s.ehlo()  
        s.login(user = 'nathan40241@gmail.com', password = 'Badgebadge29*')  # User id & password
        #s.send_message(msg)  
        s.sendmail(me, toaddr, msg.as_string())  
        s.quit()  
+       s = smtplib.SMTP('smtp.gmail.com', 587)  # Protocol
+       s.ehlo()  
+       s.starttls()  
+       s.ehlo()  
+       
     #except:  
     #   print ("Error: unable to send email")    
     except:  
@@ -555,6 +565,10 @@ def send_an_Tyleremail():
     timestamp = datetime.now().isoformat()
     subject = "There's an instruder during " + timestamp + ". Please check the photo."     # Subject
   
+    encoders.encode_base64(part)  
+    part.add_header('Content-Disposition', 'attachment; filename="picture.jpg"')   # File name and format name
+    msg.attach(part)  
+  
     msg = MIMEMultipart()  
     msg['Subject'] = subject  
     msg['From'] = me  
@@ -564,20 +578,18 @@ def send_an_Tyleremail():
   
     part = MIMEBase('application', "octet-stream")  
     part.set_payload(open("picture.jpg", "rb").read())  
-    encoders.encode_base64(part)  
-    part.add_header('Content-Disposition', 'attachment; filename="picture.jpg"')   # File name and format name
-    msg.attach(part)  
-  
+    
     try:  
-       s = smtplib.SMTP('smtp.gmail.com', 587)  # Protocol
-       s.ehlo()  
-       s.starttls()  
        s.ehlo()  
        s.login(user = 'nathan40241@gmail.com', password = 'Badgebadge29*')  # User id & password
        #s.send_message(msg)  
        s.sendmail(me, toaddr, msg.as_string())  
        s.quit()  
     #except:  
+       s = smtplib.SMTP('smtp.gmail.com', 587)  # Protocol
+       s.ehlo()  
+       s.starttls()  
+       
     #   print ("Error: unable to send email")    
     except:  
           print ("Error")
@@ -586,14 +598,15 @@ def send_an_email():
     toaddr = 'nathan40241@gmail.com'      # To id 
     me = 'nathan40241@gmail.com'          # your id
     timestamp = datetime.now().isoformat()
-    subject = "There's an intruder during " + timestamp + ". Please check the photo."     # Subject
-  
-    msg = MIMEMultipart()  
     msg['Subject'] = subject  
     msg['From'] = me  
     msg['To'] = toaddr  
     msg.preamble = "test "   
-    #msg.attach(MIMEText(text))  
+    #msg.attach(MIMEText(t
+    subject = "There's an intruder during " + timestamp + ". Please check the photo."     # Subject
+  
+    msg = MIMEMultipart()  
+    part.set_payload(open("picture.jpg", "rb").read())  
   
     part = MIMEBase('application', "octet-stream")  
     part.set_payload(open("picture.jpg", "rb").read())  
@@ -601,14 +614,15 @@ def send_an_email():
     part.add_header('Content-Disposition', 'attachment; filename="picture.jpg"')   # File name and format name
     msg.attach(part)  
   
-    try:  
-       s = smtplib.SMTP('smtp.gmail.com', 587)  # Protocol
-       s.ehlo()  
-       s.starttls()  
+    try:
+         s.starttls()  
        s.ehlo()  
        s.login(user = 'nathan40241@gmail.com', password = 'Badgebadge29*')  # User id & password
        #s.send_message(msg)  
-       s.sendmail(me, toaddr, msg.as_string())  
+       s.sendmail(me, toaddr, msg.as_string())   
+       s = smtplib.SMTP('smtp.gmail.com', 587)  # Protocol
+       s.ehlo()  
+       
        s.quit()  
     #except:  
     #   print ("Error: unable to send email")    
@@ -623,8 +637,8 @@ def print_some_times():
     s.run()
     print(time.time())
 
-with picamera.PiCamera(resolution='640x480', framerate=24) as camera:
-    output = StreamingOutput()
+with picamera.PiCamera(resolution='670x500', framerate=24) as camera:
+    output = OutputStreamLampiCamera()
     #Uncomment the next line to change your Pi's Camera rotation (in degrees)
     camera.rotation = 180
     camera.start_recording(output, format='mjpeg')
@@ -632,10 +646,9 @@ with picamera.PiCamera(resolution='640x480', framerate=24) as camera:
 
     try:
         address = ('', 8000)
-        server = StreamingServer(address, StreamingHandler)
+        server = ServerStream(address, StreamHandler)
         
         server.serve_forever()
-        print("hi")
-
+        
     finally:
         camera.stop_recording()
